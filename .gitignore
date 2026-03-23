@@ -1,0 +1,6 @@
+/target
+/credentials.json
+/client_secret.json
+/token.json
+/config.json
+.env

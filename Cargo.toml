@@ -1,0 +1,33 @@
+[package]
+name = "gcli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# HTTP client (blocking mode)
+reqwest = { version = "0.12", features = ["blocking", "json"] }
+
+# JSON serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# OAuth2 service account
+yup-oauth2 = "11"
+
+# Async runtime (needed by yup-oauth2)
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros"] }
+
+# Terminal table rendering
+comfy-table = "7"
+
+# Terminal colors + clear screen
+crossterm = "0.28"
+
+# Command line history + prompt
+rustyline = "14"
+
+# Error handling
+anyhow = "1"
+
+# Colors
+colored = "2"

@@ -284,13 +284,14 @@ async fn run_app() -> Result<()> {
                                     let list_opt = config.lists.iter().find(|l| l.id == id);
                                     if let Some(list) = list_opt {
                                         let sheet_id = app.sheets[app.current_sheet_idx].id;
+                                        println!("Assigning list '{}' to cell L{} S{}...", id.cyan(), r, c);
                                         app.client.set_data_validation(sheet_id, r, c, list.elements.clone()).await?;
                                         println!("{}", "Dropdown list assigned successfully!".green().bold());
                                     } else {
-                                        println!("{} ID: {}", "Error: List not found.".red(), id);
+                                        println!("{} ID: {}. Use 'list' to check IDs.", "Error: List not found.".red(), id.yellow());
                                     }
                                 } else {
-                                    println!("{}", "Error: No cell selected. Use l1 sA etc.".red());
+                                    println!("{}", "Error: No cell selected. First choose a cell (e.g., l1 sA).".red());
                                 }
                                 pause();
                                 Ok(())

@@ -253,8 +253,13 @@ async fn run_app() -> Result<()> {
                                 }
                             }
                             Command::ListLists => {
-                                for line in config.list_named_lists() {
-                                    println!("{}", line);
+                                let lines = config.list_named_lists();
+                                if lines.is_empty() {
+                                    println!("{}", "No lists found. Use 'nl <...>(id)' to create one.".yellow());
+                                } else {
+                                    for line in lines {
+                                        println!("{}", line);
+                                    }
                                 }
                                 pause();
                                 Ok(())

@@ -1,8 +1,16 @@
 use anyhow::{Context, Result};
 use yup_oauth2::{InstalledFlowAuthenticator, InstalledFlowReturnMethod, ApplicationSecret};
 
+use serde::Deserialize;
+
 #[derive(Debug, Clone)]
 pub struct Token(pub String);
+
+#[derive(Deserialize)]
+struct SecretWrapper {
+    installed: Option<ApplicationSecret>,
+    web: Option<ApplicationSecret>,
+}
 
 /// The OAuth 2.0 client secret for the application.
 /// This identifies the app to Google's authentication server.
@@ -10,9 +18,12 @@ const CLIENT_SECRET: &str = include_str!("../client_secret.json");
 
 /// Authenticates the user via the browser and returns an access token.
 pub async fn get_token() -> Result<Token> {
-    // Parse the embedded application secret
-    let secret: ApplicationSecret = serde_json::from_str(CLIENT_SECRET)
-        .context("Invalid format in embedded client_secret.json")?;
+    // Parse the embedded application secret, handling the "installed" wrapper
+    let wrapper: SecretWrapper = serde_json::from_str(CLIENT_SECRET)
+        .context("Failed to parse client_secret.json - make sure it contains 'installed' or 'web' keys")?;
+    
+    let secret = wrapper.installed.or(wrapper.web)
+        .context("No application secret found inside 'installed' or 'web' keys")?;
 
     // Define the required scopes
     let scopes = &[

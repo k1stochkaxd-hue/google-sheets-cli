@@ -6,7 +6,7 @@ pub enum Command {
     Val(usize),
     Delete,
     New,
-    Add(String),
+    Add(Vec<String>, bool), // Values, is_reverse
     Undo,
     Redo,
     Help,
@@ -22,11 +22,11 @@ pub fn parse_command(input: &str) -> Vec<Command> {
     let mut i = 0;
     while i < parts.len() {
         let part = parts[i].to_lowercase();
-        
+
         if part.starts_with('l') {
             let num = part[1..].parse::<usize>().ok();
             if num.is_none() && i + 1 < parts.len() {
-                if let Ok(n) = parts[i+1].parse::<usize>() {
+                if let Ok(n) = parts[i + 1].parse::<usize>() {
                     commands.push(Command::Row(Some(n)));
                     i += 1;
                 } else {
@@ -38,7 +38,7 @@ pub fn parse_command(input: &str) -> Vec<Command> {
         } else if part.starts_with('s') {
             let rest = &part[1..];
             let mut col_val = None;
-            
+
             if !rest.is_empty() {
                 if let Ok(n) = rest.parse::<usize>() {
                     col_val = Some(n);
@@ -46,7 +46,7 @@ pub fn parse_command(input: &str) -> Vec<Command> {
                     col_val = letter_to_id(rest);
                 }
             } else if i + 1 < parts.len() {
-                let next = parts[i+1].to_uppercase();
+                let next = parts[i + 1].to_uppercase();
                 if let Ok(n) = next.parse::<usize>() {
                     col_val = Some(n);
                     i += 1;
@@ -59,7 +59,7 @@ pub fn parse_command(input: &str) -> Vec<Command> {
         } else if part.starts_with('v') {
             let num = part[1..].parse::<usize>().ok();
             if num.is_none() && i + 1 < parts.len() {
-                if let Ok(n) = parts[i+1].parse::<usize>() {
+                if let Ok(n) = parts[i + 1].parse::<usize>() {
                     commands.push(Command::Val(n));
                     i += 1;
                 }
@@ -67,7 +67,7 @@ pub fn parse_command(input: &str) -> Vec<Command> {
                 commands.push(Command::Val(n));
             }
         } else if part == "ed" {
-            let val = parts[i+1..].join(" ");
+            let val = parts[i + 1..].join(" ");
             commands.push(Command::Edit(val));
             break;
         } else if part == "del" {
@@ -75,11 +75,20 @@ pub fn parse_command(input: &str) -> Vec<Command> {
         } else if part == "new" {
             commands.push(Command::New);
         } else if part == "add" {
-            let val = parts[i+1..].join(" ");
-            commands.push(Command::Add(val));
+            let full_input = parts[i..].join(" ");
+            if let (Some(start), Some(end)) = (full_input.find('<'), full_input.rfind('>')) {
+                let mut inner = full_input[start + 1..end].trim().to_string();
+                let mut reverse = false;
+                if inner.ends_with("(-1)") {
+                    reverse = true;
+                    inner = inner[..inner.len() - 4].trim().to_string();
+                }
+                let values: Vec<String> = inner.split(';').map(|s| s.trim().to_string()).collect();
+                commands.push(Command::Add(values, reverse));
+            }
             break;
         } else if part == "ns" {
-            let title = parts[i+1..].join(" ");
+            let title = parts[i + 1..].join(" ");
             commands.push(Command::NewSheet(title));
             break;
         } else if part == "menu" || part == "eq" {
@@ -97,7 +106,7 @@ pub fn parse_command(input: &str) -> Vec<Command> {
         } else if let Ok(n) = part.parse::<usize>() {
             commands.push(Command::Sheet(n));
         }
-        
+
         i += 1;
     }
     commands
@@ -106,8 +115,14 @@ pub fn parse_command(input: &str) -> Vec<Command> {
 fn letter_to_id(s: &str) -> Option<usize> {
     let mut n = 0;
     for c in s.chars() {
-        if !c.is_alphabetic() { return None; }
+        if !c.is_alphabetic() {
+            return None;
+        }
         n = n * 26 + (c.to_ascii_uppercase() as usize - 'A' as usize + 1);
     }
-    if n == 0 { None } else { Some(n) }
+    if n == 0 {
+        None
+    } else {
+        Some(n)
+    }
 }

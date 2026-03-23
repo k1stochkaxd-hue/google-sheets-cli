@@ -178,43 +178,26 @@ async fn run_app() -> Result<()> {
                                 }
                                 app.load_current_sheet().await
                             }
-                            Command::Add(val) => {
-                                // Specific business logic for 'Workers' tracking sheet
-                                let mut workers_idx = None;
-                                for (idx, s) in app.sheets.iter().enumerate() {
-                                    if s.title.to_lowercase() == "workers" {
-                                        workers_idx = Some(idx);
-                                        break;
+                            Command::Add(values, reverse) => {
+                                let row = app.selected_row.unwrap_or(1);
+                                let max_cols = if !app.data.is_empty() { app.data[0].len() } else { 26 };
+                                
+                                for (i, mut val) in values.into_iter().enumerate() {
+                                    if val.starts_with("&?") {
+                                        val = val.replacen("&?", "=", 1);
+                                    }
+                                    
+                                    let col = if reverse {
+                                        if max_cols > i { max_cols - i } else { 1 }
+                                    } else {
+                                        i + 1
+                                    };
+
+                                    if col > 0 && col <= max_cols {
+                                        app.apply_change(row, col, val, true).await?;
                                     }
                                 }
-
-                                if let Some(idx) = workers_idx {
-                                    app.current_sheet_idx = idx;
-                                    app.load_current_sheet().await?;
-
-                                    let args: Vec<String> = val
-                                        .split(';')
-                                        .map(|s| {
-                                            let mut s = s.trim().to_string();
-                                            if s.starts_with("&?") {
-                                                s = s.replacen("&?", "=", 1);
-                                            }
-                                            s
-                                        })
-                                        .collect();
-                                    let mut final_row = args;
-                                    if final_row.len() == 4 {
-                                        let salary = final_row.pop().unwrap();
-                                        final_row.push("".to_string());
-                                        final_row.push(salary);
-                                    }
-
-                                    let title = &app.sheets[app.current_sheet_idx].title;
-                                    app.client.append_row(title, final_row).await?;
-                                    app.load_current_sheet().await
-                                } else {
-                                    Ok(())
-                                }
+                                app.load_current_sheet().await
                             }
                             Command::Undo => app.undo().await,
                             Command::Redo => app.redo().await,
@@ -441,7 +424,8 @@ fn show_help() {
     println!("v <N>      - Select from dropdown value N");
     println!("del        - Clear selected cell");
     println!("new        - Append new row at bottom");
-    println!("add <args> - Add to Workers (name; phone; date; salary)");
+    println!("add <x;y;z>  - Fill selected row items from Left to Right");
+    println!("add <x;y (-1)>- Fill selected row items from Right to Left");
     println!("ns <name>  - Create a new Sheet (tab)");
     println!("rm         - Delete current Sheet (tab)");
     println!("cz / csz   - Undo / Redo");

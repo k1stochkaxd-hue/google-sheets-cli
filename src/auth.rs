@@ -33,7 +33,7 @@ pub async fn get_token() -> Result<Token> {
 
     // Build the authenticator (v11 pattern)
     // We use Interactive method which is very robust for desktop apps
-    let auth = InstalledFlowAuthenticator::builder(secret, InstalledFlowReturnMethod::Interactive)
+    let auth = InstalledFlowAuthenticator::builder(secret, InstalledFlowReturnMethod::HTTPRedirect)
         .build()
         .await
         .context("Failed to build OAuth 2.0 authenticator")?;

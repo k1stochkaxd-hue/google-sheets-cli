@@ -31,3 +31,5 @@ anyhow = "1"
 
 # Colors
 colored = "2"
+# Random IDs
+rand = "0.8"

@@ -255,4 +255,55 @@ impl SheetsClient {
             .error_for_status()?;
         Ok(())
     }
+
+    /// Sets a data validation rule (dropdown list) for a specific cell
+    pub async fn set_data_validation(
+        &self,
+        sheet_id: i64,
+        row: usize,
+        col: usize,
+        values: Vec<String>,
+    ) -> Result<()> {
+        let url = format!(
+            "https://sheets.googleapis.com/v4/spreadsheets/{}:batchUpdate",
+            self.spreadsheet_id
+        );
+
+        let condition_values: Vec<serde_json::Value> = values
+            .into_iter()
+            .map(|v| json!({ "userEnteredValue": v }))
+            .collect();
+
+        let body = json!({
+            "requests": [
+                {
+                    "setDataValidation": {
+                        "range": {
+                            "sheetId": sheet_id,
+                            "startRowIndex": row - 1,
+                            "endRowIndex": row,
+                            "startColumnIndex": col - 1,
+                            "endColumnIndex": col
+                        },
+                        "rule": {
+                            "condition": {
+                                "type": "ONE_OF_LIST",
+                                "values": condition_values
+                            },
+                            "showCustomUi": true,
+                            "strict": true
+                        }
+                    }
+                }
+            ]
+        });
+
+        self.client.post(url)
+            .header("Authorization", self.auth_header())
+            .json(&body)
+            .send()
+            .await?
+            .error_for_status()?;
+        Ok(())
+    }
 }

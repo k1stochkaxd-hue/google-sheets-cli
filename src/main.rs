@@ -252,6 +252,44 @@ async fn run_app() -> Result<()> {
                                     }
                                 }
                             }
+                            Command::ListLists => {
+                                for line in config.list_named_lists() {
+                                    println!("{}", line);
+                                }
+                                pause();
+                                Ok(())
+                            }
+                            Command::NewList(elements, id) => {
+                                let new_id = config.add_named_list(elements, id);
+                                println!("{} ID: {}", "List created!".green().bold(), new_id.cyan());
+                                pause();
+                                Ok(())
+                            }
+                            Command::RemoveList(id) => {
+                                if config.remove_named_list(&id) {
+                                    println!("{}", "List removed successfully.".green());
+                                } else {
+                                    println!("{} ID: {}", "Error: List not found.".red(), id);
+                                }
+                                pause();
+                                Ok(())
+                            }
+                            Command::EditList(id) => {
+                                if let (Some(r), Some(c)) = (app.selected_row, app.selected_col) {
+                                    let list_opt = config.lists.iter().find(|l| l.id == id);
+                                    if let Some(list) = list_opt {
+                                        let sheet_id = app.sheets[app.current_sheet_idx].id;
+                                        app.client.set_data_validation(sheet_id, r, c, list.elements.clone()).await?;
+                                        println!("{}", "Dropdown list assigned successfully!".green().bold());
+                                    } else {
+                                        println!("{} ID: {}", "Error: List not found.".red(), id);
+                                    }
+                                } else {
+                                    println!("{}", "Error: No cell selected. Use l1 sA etc.".red());
+                                }
+                                pause();
+                                Ok(())
+                            }
                             Command::Exit => {
                                 return_to_menu = false;
                                 should_exit = true;
@@ -437,6 +475,10 @@ fn show_help() {
     println!("add <x;y;z>  - Fill row Left to Right");
     println!("add <x;y (-1)>- Fill row Right to Left (Reverse)");
     println!("add <...> [x-y]- Skip columns x through y while filling");
+    println!("list       - List all named dropdown sets");
+    println!("nl <el;el>(id) - Create new name list (auto-ID if exists)");
+    println!("rl (id)    - Remove list by ID");
+    println!("edl (id)   - Assign list to selected cell as dropdown");
     println!("ns <name>  - Create a new Sheet (tab)");
     println!("rm         - Delete current Sheet (tab)");
     println!("cz / csz   - Undo / Redo");

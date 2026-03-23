@@ -335,14 +335,24 @@ fn select_spreadsheet(config: &mut AppConfig) -> Option<String> {
 
         match event::read() {
             Ok(Event::Key(KeyEvent {
-                code: KeyCode::Up, ..
+                code: KeyCode::Up,
+                kind: event::KeyEventKind::Press,
+                ..
             })) => {
-                if selected_idx > 0 { selected_idx -= 1; }
+                if selected_idx > 0 { 
+                    selected_idx -= 1;
+                    std::thread::sleep(std::time::Duration::from_millis(100)); // Smooth scrolling
+                }
             }
             Ok(Event::Key(KeyEvent {
-                code: KeyCode::Down, ..
+                code: KeyCode::Down,
+                kind: event::KeyEventKind::Press,
+                ..
             })) => {
-                if selected_idx < config.spreadsheets.len() { selected_idx += 1; }
+                if selected_idx < config.spreadsheets.len() { 
+                    selected_idx += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(100)); // Smooth scrolling
+                }
             }
             Ok(Event::Key(KeyEvent {
                 code: KeyCode::Delete,
@@ -356,7 +366,7 @@ fn select_spreadsheet(config: &mut AppConfig) -> Option<String> {
                 if selected_idx < config.spreadsheets.len() {
                     config.remove(selected_idx).ok();
                     // Prevent rapid-fire deletion with a slight pause
-                    std::thread::sleep(std::time::Duration::from_millis(200));
+                    std::thread::sleep(std::time::Duration::from_millis(250));
                     // Adjust index if we just deleted the last item
                     if selected_idx >= config.spreadsheets.len() && selected_idx > 0 {
                         selected_idx -= 1;
@@ -364,7 +374,9 @@ fn select_spreadsheet(config: &mut AppConfig) -> Option<String> {
                 }
             }
             Ok(Event::Key(KeyEvent {
-                code: KeyCode::Enter, ..
+                code: KeyCode::Enter,
+                kind: event::KeyEventKind::Press,
+                ..
             })) => {
                 if selected_idx == config.spreadsheets.len() {
                     disable_raw_mode().ok();
@@ -381,6 +393,8 @@ fn select_spreadsheet(config: &mut AppConfig) -> Option<String> {
                         config.add(name, url).ok();
                     }
                     enable_raw_mode().ok();
+                    // Small delay after adding new to prevent accidental selection
+                    std::thread::sleep(std::time::Duration::from_millis(200));
                 } else {
                     break Some(config.spreadsheets[selected_idx].url.clone())
                 }

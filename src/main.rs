@@ -286,6 +286,10 @@ async fn run_app() -> Result<()> {
                                         let sheet_id = app.sheets[app.current_sheet_idx].id;
                                         println!("Assigning list '{}' to cell L{} S{}...", id.cyan(), r, c);
                                         app.client.set_data_validation(sheet_id, r, c, list.elements.clone()).await?;
+                                        
+                                        // REFRESH local options so 'v' command works immediately!
+                                        let _ = app.fetch_options().await;
+                                        
                                         println!("{}", "Dropdown list assigned successfully!".green().bold());
                                     } else {
                                         println!("{} ID: {}. Use 'list' to check IDs.", "Error: List not found.".red(), id.yellow());

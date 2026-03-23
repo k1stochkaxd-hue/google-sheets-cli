@@ -29,7 +29,43 @@ pub fn parse_command(input: &str) -> Vec<Command> {
     while i < parts.len() {
         let part = parts[i].to_lowercase();
 
-        if part.starts_with('l') {
+        if part == "list" {
+            commands.push(Command::ListLists);
+        } else if part == "nl" {
+            let full_input = parts[i..].join(" ");
+            if let (Some(b_start), Some(b_end)) = (full_input.find('<'), full_input.rfind('>')) {
+                let inner = &full_input[b_start + 1..b_end];
+                let elements: Vec<String> = inner.split(';').map(|s| s.trim().to_string()).collect();
+                
+                let id = if let (Some(p_start), Some(p_end)) = (full_input.find('('), full_input.rfind(')')) {
+                    full_input[p_start + 1..p_end].trim().to_string()
+                } else {
+                    String::new()
+                };
+                commands.push(Command::NewList(elements, id));
+            }
+            break;
+        } else if part == "rl" {
+            let id = if let (Some(p_start), Some(p_end)) = (input.find('('), input.rfind(')')) {
+                input[p_start + 1..p_end].trim().to_string()
+            } else if i + 1 < parts.len() {
+                parts[i + 1].to_string()
+            } else {
+                String::new()
+            };
+            commands.push(Command::RemoveList(id));
+            break;
+        } else if part == "edl" {
+             let id = if let (Some(p_start), Some(p_end)) = (input.find('('), input.rfind(')')) {
+                input[p_start + 1..p_end].trim().to_string()
+            } else if i + 1 < parts.len() {
+                parts[i + 1].to_string()
+            } else {
+                String::new()
+            };
+            commands.push(Command::EditList(id));
+            break;
+        } else if part.starts_with('l') {
             let num = part[1..].parse::<usize>().ok();
             if num.is_none() && i + 1 < parts.len() {
                 if let Ok(n) = parts[i + 1].parse::<usize>() {
@@ -127,42 +163,6 @@ pub fn parse_command(input: &str) -> Vec<Command> {
             commands.push(Command::Help);
         } else if part == "exit" || part == "quit" {
             commands.push(Command::Exit);
-        } else if part == "list" {
-            commands.push(Command::ListLists);
-        } else if part == "nl" {
-            let full_input = parts[i..].join(" ");
-            if let (Some(b_start), Some(b_end)) = (full_input.find('<'), full_input.rfind('>')) {
-                let inner = &full_input[b_start + 1..b_end];
-                let elements: Vec<String> = inner.split(';').map(|s| s.trim().to_string()).collect();
-                
-                let id = if let (Some(p_start), Some(p_end)) = (full_input.find('('), full_input.rfind(')')) {
-                    full_input[p_start + 1..p_end].trim().to_string()
-                } else {
-                    String::new()
-                };
-                commands.push(Command::NewList(elements, id));
-            }
-            break;
-        } else if part == "rl" {
-            let id = if let (Some(p_start), Some(p_end)) = (input.find('('), input.rfind(')')) {
-                input[p_start + 1..p_end].trim().to_string()
-            } else if i + 1 < parts.len() {
-                parts[i + 1].to_string()
-            } else {
-                String::new()
-            };
-            commands.push(Command::RemoveList(id));
-            break;
-        } else if part == "edl" {
-             let id = if let (Some(p_start), Some(p_end)) = (input.find('('), input.rfind(')')) {
-                input[p_start + 1..p_end].trim().to_string()
-            } else if i + 1 < parts.len() {
-                parts[i + 1].to_string()
-            } else {
-                String::new()
-            };
-            commands.push(Command::EditList(id));
-            break;
         } else if let Ok(n) = part.parse::<usize>() {
             commands.push(Command::Sheet(n));
         }

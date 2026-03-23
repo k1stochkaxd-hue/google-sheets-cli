@@ -345,12 +345,22 @@ fn select_spreadsheet(config: &mut AppConfig) -> Option<String> {
                 if selected_idx < config.spreadsheets.len() { selected_idx += 1; }
             }
             Ok(Event::Key(KeyEvent {
-                code: KeyCode::Delete, ..
+                code: KeyCode::Delete,
+                kind: event::KeyEventKind::Press,
+                ..
             }) | Event::Key(KeyEvent {
-                code: KeyCode::Backspace, ..
+                code: KeyCode::Backspace,
+                kind: event::KeyEventKind::Press,
+                ..
             })) => {
                 if selected_idx < config.spreadsheets.len() {
                     config.remove(selected_idx).ok();
+                    // Prevent rapid-fire deletion with a slight pause
+                    std::thread::sleep(std::time::Duration::from_millis(200));
+                    // Adjust index if we just deleted the last item
+                    if selected_idx >= config.spreadsheets.len() && selected_idx > 0 {
+                        selected_idx -= 1;
+                    }
                 }
             }
             Ok(Event::Key(KeyEvent {

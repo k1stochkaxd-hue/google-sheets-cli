@@ -287,14 +287,16 @@ async fn run_app() -> Result<()> {
                                     let list_opt = config.lists.iter().find(|l| l.id == id);
                                     if let Some(list) = list_opt {
                                         let sheet_id = app.sheets[app.current_sheet_idx].id;
-                                        println!("Assigning list '{}' to cell L{} S{}...", id.cyan(), r, c);
                                         app.client.set_data_validation(sheet_id, r, c, list.elements.clone()).await?;
                                         
-                                        // REFRESH local options so 'v' command works immediately!
-                                        let _ = app.fetch_options().await;
-                                        println!("Loaded {} options from Google.", app.cell_options.len().to_string().cyan());
+                                        // Set options directly from memory — no need to re-fetch from Google
+                                        app.cell_options = list.elements.clone();
                                         
-                                        println!("{}", "Dropdown list assigned successfully!".green().bold());
+                                        println!("{} ({} options ready: {})", 
+                                            "Dropdown list assigned successfully!".green().bold(),
+                                            app.cell_options.len().to_string().cyan(),
+                                            app.cell_options.join(", ").yellow()
+                                        );
                                     } else {
                                         println!("{} ID: {}. Use 'list' to check IDs.", "Error: List not found.".red(), id.yellow());
                                     }

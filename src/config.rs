@@ -2,6 +2,7 @@ use serde::{Serialize, Deserialize};
 use std::fs;
 use anyhow::{Result};
 use rand::Rng;
+use colored::*;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SpreadsheetConfig {

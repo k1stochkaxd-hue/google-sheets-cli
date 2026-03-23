@@ -31,7 +31,7 @@ pub fn parse_command(input: &str) -> Vec<Command> {
 
         if part == "list" {
             commands.push(Command::ListLists);
-        } else if part == "nl" {
+        } else if part.starts_with("nl") {
             let full_input = parts[i..].join(" ");
             if let (Some(b_start), Some(b_end)) = (full_input.find('<'), full_input.rfind('>')) {
                 let inner = &full_input[b_start + 1..b_end];
@@ -45,25 +45,33 @@ pub fn parse_command(input: &str) -> Vec<Command> {
                 commands.push(Command::NewList(elements, id));
             }
             break;
-        } else if part == "rl" {
-            let id = if let (Some(p_start), Some(p_end)) = (input.find('('), input.rfind(')')) {
-                input[p_start + 1..p_end].trim().to_string()
+        } else if part.starts_with("rl") {
+            let full_input = parts[i..].join(" ");
+            let id = if let (Some(p_start), Some(p_end)) = (full_input.find('('), full_input.rfind(')')) {
+                full_input[p_start + 1..p_end].trim().to_string()
             } else if i + 1 < parts.len() {
                 parts[i + 1].to_string()
             } else {
-                String::new()
+                // Try to take what's after "rl" if no parens
+                full_input[2..].trim().to_string()
             };
-            commands.push(Command::RemoveList(id));
+            if !id.is_empty() {
+                commands.push(Command::RemoveList(id));
+            }
             break;
-        } else if part == "edl" {
-             let id = if let (Some(p_start), Some(p_end)) = (input.find('('), input.rfind(')')) {
-                input[p_start + 1..p_end].trim().to_string()
+        } else if part.starts_with("edl") {
+             let full_input = parts[i..].join(" ");
+             let id = if let (Some(p_start), Some(p_end)) = (full_input.find('('), full_input.rfind(')')) {
+                full_input[p_start + 1..p_end].trim().to_string()
             } else if i + 1 < parts.len() {
                 parts[i + 1].to_string()
             } else {
-                String::new()
+                // Try to take what's after "edl" if no parens
+                full_input[3..].trim().to_string()
             };
-            commands.push(Command::EditList(id));
+            if !id.is_empty() {
+                commands.push(Command::EditList(id));
+            }
             break;
         } else if part.starts_with('l') {
             let num = part[1..].parse::<usize>().ok();

@@ -178,23 +178,33 @@ async fn run_app() -> Result<()> {
                                 }
                                 app.load_current_sheet().await
                             }
-                            Command::Add(values, reverse) => {
+                            Command::Add(values, reverse, skip_cols) => {
                                 let row = app.selected_row.unwrap_or(1);
                                 let max_cols = if !app.data.is_empty() { app.data[0].len() } else { 26 };
                                 
-                                for (i, mut val) in values.into_iter().enumerate() {
-                                    if val.starts_with("&?") {
-                                        val = val.replacen("&?", "=", 1);
+                                let mut current_col = if reverse { max_cols } else { 1 };
+                                for mut val in values {
+                                    // Skip columns specified in the [x-y] bracket list
+                                    while skip_cols.contains(&current_col) {
+                                        if reverse {
+                                            if current_col > 1 { current_col -= 1; } else { break; }
+                                        } else {
+                                            current_col += 1;
+                                        }
                                     }
-                                    
-                                    let col = if reverse {
-                                        if max_cols > i { max_cols - i } else { 1 }
-                                    } else {
-                                        i + 1
-                                    };
 
-                                    if col > 0 && col <= max_cols {
-                                        app.apply_change(row, col, val, true).await?;
+                                    if current_col > 0 && current_col <= max_cols {
+                                        if val.starts_with("&?") {
+                                            val = val.replacen("&?", "=", 1);
+                                        }
+                                        app.apply_change(row, current_col, val, true).await?;
+                                        
+                                        // Move to next position after application
+                                        if reverse {
+                                            if current_col > 1 { current_col -= 1; }
+                                        } else {
+                                            current_col += 1;
+                                        }
                                     }
                                 }
                                 app.load_current_sheet().await
@@ -424,8 +434,9 @@ fn show_help() {
     println!("v <N>      - Select from dropdown value N");
     println!("del        - Clear selected cell");
     println!("new        - Append new row at bottom");
-    println!("add <x;y;z>  - Fill selected row items from Left to Right");
-    println!("add <x;y (-1)>- Fill selected row items from Right to Left");
+    println!("add <x;y;z>  - Fill row Left to Right");
+    println!("add <x;y (-1)>- Fill row Right to Left (Reverse)");
+    println!("add <...> [x-y]- Skip columns x through y while filling");
     println!("ns <name>  - Create a new Sheet (tab)");
     println!("rm         - Delete current Sheet (tab)");
     println!("cz / csz   - Undo / Redo");

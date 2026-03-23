@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 pub enum Command {
     Sheet(usize),
     Row(Option<usize>),
@@ -6,7 +8,7 @@ pub enum Command {
     Val(usize),
     Delete,
     New,
-    Add(Vec<String>, bool), // Values, is_reverse
+    Add(Vec<String>, bool, HashSet<usize>), // Values, is_reverse, skip_columns
     Undo,
     Redo,
     Help,
@@ -84,7 +86,25 @@ pub fn parse_command(input: &str) -> Vec<Command> {
                     inner = inner[..inner.len() - 4].trim().to_string();
                 }
                 let values: Vec<String> = inner.split(';').map(|s| s.trim().to_string()).collect();
-                commands.push(Command::Add(values, reverse));
+                
+                let mut skip_cols = HashSet::new();
+                if let (Some(s_start), Some(s_end)) = (full_input.find('['), full_input.find(']')) {
+                    let skip_part = &full_input[s_start + 1..s_end];
+                    for item in skip_part.split(',') {
+                        if item.contains('-') {
+                            let range: Vec<&str> = item.split('-').collect();
+                            if range.len() == 2 {
+                                if let (Ok(s), Ok(e)) = (range[0].trim().parse::<usize>(), range[1].trim().parse::<usize>()) {
+                                    for col in s..=e { skip_cols.insert(col); }
+                                }
+                            }
+                        } else if let Ok(col) = item.trim().parse::<usize>() {
+                            skip_cols.insert(col);
+                        }
+                    }
+                }
+                
+                commands.push(Command::Add(values, reverse, skip_cols));
             }
             break;
         } else if part == "ns" {

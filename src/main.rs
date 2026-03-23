@@ -137,13 +137,16 @@ async fn run_app() -> Result<()> {
                                 if let (Some(r), Some(c)) = (app.selected_row, app.selected_col) {
                                     if n > 0 && n <= app.cell_options.len() {
                                         let val = app.cell_options[n - 1].clone();
-                                        app.apply_change(r, c, val, true).await
+                                        app.apply_change(r, c, val, true).await?;
                                     } else {
-                                        Ok(())
+                                        println!("{} ({} options available).", "Error: Invalid option index".red(), app.cell_options.len());
+                                        pause();
                                     }
                                 } else {
-                                    Ok(())
+                                    println!("{}", "Error: No cell selected. First choose a cell (e.g., l1 sA).".red());
+                                    pause();
                                 }
+                                Ok(())
                             }
                             Command::Delete => {
                                 if let (Some(r), Some(c)) = (app.selected_row, app.selected_col) {
@@ -289,6 +292,7 @@ async fn run_app() -> Result<()> {
                                         
                                         // REFRESH local options so 'v' command works immediately!
                                         let _ = app.fetch_options().await;
+                                        println!("Loaded {} options from Google.", app.cell_options.len().to_string().cyan());
                                         
                                         println!("{}", "Dropdown list assigned successfully!".green().bold());
                                     } else {

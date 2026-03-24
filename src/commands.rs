@@ -27,11 +27,11 @@ pub fn parse_command(input: &str) -> Vec<Command> {
     let parts: Vec<&str> = input.split_whitespace().collect();
     let mut i = 0;
     while i < parts.len() {
-        let part = parts[i].to_lowercase();
+        let part_lower = parts[i].to_lowercase();
 
-        if part == "list" {
+        if part_lower == "list" {
             commands.push(Command::ListLists);
-        } else if part.starts_with("nl") {
+        } else if part_lower.starts_with("nl") {
             let full_input = parts[i..].join(" ");
             if let (Some(b_start), Some(b_end)) = (full_input.find('<'), full_input.rfind('>')) {
                 let inner = &full_input[b_start + 1..b_end];
@@ -43,88 +43,55 @@ pub fn parse_command(input: &str) -> Vec<Command> {
                     String::new()
                 };
                 commands.push(Command::NewList(elements, id));
+                break;
             }
-            break;
-        } else if part.starts_with("rl") {
-            let full_input = parts[i..].join(" ");
-            let id = if let (Some(p_start), Some(p_end)) = (full_input.find('('), full_input.rfind(')')) {
-                full_input[p_start + 1..p_end].trim().to_string()
-            } else if i + 1 < parts.len() {
-                parts[i + 1].to_string()
+        } else if part_lower.starts_with("rl") {
+            let id = if part_lower == "rl" {
+                parts.get(i + 1).map(|s| s.to_string()).unwrap_or_default()
             } else {
-                // Try to take what's after "rl" if no parens
-                full_input[2..].trim().to_string()
+                part_lower[2..].to_string()
             };
-            if !id.is_empty() {
-                commands.push(Command::RemoveList(id));
-            }
-            break;
-        } else if part.starts_with("edl") {
-             let full_input = parts[i..].join(" ");
-             let id = if let (Some(p_start), Some(p_end)) = (full_input.find('('), full_input.rfind(')')) {
-                full_input[p_start + 1..p_end].trim().to_string()
-            } else if i + 1 < parts.len() {
-                parts[i + 1].to_string()
+            commands.push(Command::RemoveList(id));
+        } else if part_lower.starts_with("edl") {
+            let id = if part_lower == "edl" {
+                parts.get(i + 1).map(|s| s.to_string()).unwrap_or_default()
             } else {
-                // Try to take what's after "edl" if no parens
-                full_input[3..].trim().to_string()
+                // Here we use the ORIGINAL case from parts[i] if it's edlXYZ
+                parts[i][3..].to_string()
             };
-            if !id.is_empty() {
-                commands.push(Command::EditList(id));
+            commands.push(Command::EditList(id));
+        } else if part_lower.starts_with('l') && part_lower[1..].parse::<usize>().is_ok() {
+            let n = part_lower[1..].parse::<usize>().ok();
+            commands.push(Command::Row(n));
+        } else if part_lower.starts_with('s') && part_lower[1..].parse::<usize>().is_ok() {
+            let n = part_lower[1..].parse::<usize>().ok();
+            commands.push(Command::Col(n));
+        } else if part_lower.starts_with('s') && part_lower.len() > 1 && part_lower[1..].chars().all(|c| c.is_alphabetic()) {
+            let col_str = &part_lower[1..];
+            let mut col = 0;
+            for c in col_str.chars() {
+                col = col * 26 + (c as usize - 'a' as usize + 1);
             }
-            break;
-        } else if part.starts_with('l') {
-            let num = part[1..].parse::<usize>().ok();
-            if num.is_none() && i + 1 < parts.len() {
-                if let Ok(n) = parts[i + 1].parse::<usize>() {
-                    commands.push(Command::Row(Some(n)));
-                    i += 1;
-                } else {
-                    commands.push(Command::Row(None));
-                }
-            } else {
-                commands.push(Command::Row(num));
-            }
-        } else if part.starts_with('s') {
-            let rest = &part[1..];
-            let mut col_val = None;
-
-            if !rest.is_empty() {
-                if let Ok(n) = rest.parse::<usize>() {
-                    col_val = Some(n);
-                } else {
-                    col_val = letter_to_id(rest);
-                }
-            } else if i + 1 < parts.len() {
-                let next = parts[i + 1].to_uppercase();
-                if let Ok(n) = next.parse::<usize>() {
-                    col_val = Some(n);
-                    i += 1;
-                } else if let Some(n) = letter_to_id(&next) {
-                    col_val = Some(n);
-                    i += 1;
-                }
-            }
-            commands.push(Command::Col(col_val));
-        } else if part.starts_with('v') {
-            let num = part[1..].parse::<usize>().ok();
-            if num.is_none() && i + 1 < parts.len() {
-                if let Ok(n) = parts[i + 1].parse::<usize>() {
-                    commands.push(Command::Val(n));
-                    i += 1;
-                }
-            } else if let Some(n) = num {
-                commands.push(Command::Val(n));
-            }
-        } else if part == "ed" {
+            commands.push(Command::Col(Some(col)));
+        } else if part_lower == "v" {
+             if let Some(n_str) = parts.get(i+1) {
+                 if let Ok(n) = n_str.parse::<usize>() {
+                     commands.push(Command::Val(n));
+                     i += 1;
+                 }
+             }
+        } else if part_lower.starts_with('v') && part_lower[1..].parse::<usize>().is_ok() {
+            let n = part_lower[1..].parse::<usize>().unwrap_or(0);
+            commands.push(Command::Val(n));
+        } else if part_lower == "ed" {
             let val = parts[i + 1..].join(" ");
             commands.push(Command::Edit(val));
             break;
-        } else if part == "del" {
+        } else if part_lower == "del" {
             commands.push(Command::Delete);
-        } else if part == "new" {
+        } else if part_lower == "new" {
             commands.push(Command::New);
-        } else if part == "add" {
+        } else if part_lower == "add" {
             let full_input = parts[i..].join(" ");
             if let (Some(start), Some(end)) = (full_input.find('<'), full_input.rfind('>')) {
                 let mut inner = full_input[start + 1..end].trim().to_string();
@@ -155,42 +122,27 @@ pub fn parse_command(input: &str) -> Vec<Command> {
                 commands.push(Command::Add(values, reverse, skip_cols));
             }
             break;
-        } else if part == "ns" {
+        } else if part_lower == "ns" {
             let title = parts[i + 1..].join(" ");
             commands.push(Command::NewSheet(title));
             break;
-        } else if part == "menu" || part == "eq" {
+        } else if part_lower == "menu" || part_lower == "eq" {
             commands.push(Command::Menu);
-        } else if part == "rm" {
+        } else if part_lower == "rm" {
             commands.push(Command::Remove);
-        } else if part == "cz" {
+        } else if part_lower == "cz" {
             commands.push(Command::Undo);
-        } else if part == "csz" {
+        } else if part_lower == "csz" {
             commands.push(Command::Redo);
-        } else if part == "h" {
+        } else if part_lower == "h" {
             commands.push(Command::Help);
-        } else if part == "exit" || part == "quit" {
+        } else if part_lower == "exit" || part_lower == "quit" {
             commands.push(Command::Exit);
-        } else if let Ok(n) = part.parse::<usize>() {
+        } else if let Ok(n) = part_lower.parse::<usize>() {
             commands.push(Command::Sheet(n));
         }
 
         i += 1;
     }
     commands
-}
-
-fn letter_to_id(s: &str) -> Option<usize> {
-    let mut n = 0;
-    for c in s.chars() {
-        if !c.is_alphabetic() {
-            return None;
-        }
-        n = n * 26 + (c.to_ascii_uppercase() as usize - 'A' as usize + 1);
-    }
-    if n == 0 {
-        None
-    } else {
-        Some(n)
-    }
 }

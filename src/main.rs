@@ -288,16 +288,17 @@ async fn run_app() -> Result<()> {
                             }
                             Command::EditList(id) => {
                                 if let (Some(r), Some(c)) = (app.selected_row, app.selected_col) {
+                                    // CASE-INSENSITIVE SEARCH for the list ID
                                     let elements_opt = config.lists.iter()
-                                        .find(|l| l.id == id)
-                                        .map(|l| l.elements.clone());
+                                        .find(|l| l.id.to_lowercase() == id.to_lowercase())
+                                        .map(|l| (l.id.clone(), l.elements.clone()));
                                         
-                                    if let Some(elements) = elements_opt {
+                                    if let Some((actual_id, elements)) = elements_opt {
                                         let sheet_id = app.sheets[app.current_sheet_idx].id;
                                         app.client.set_data_validation(sheet_id, r, c, elements.clone()).await?;
                                         
-                                        // PERSIST to local config map!
-                                        config.assign_list_to_cell(sheet_id, r, c, id.clone());
+                                        // PERSIST with the actual (properly cased) ID
+                                        config.assign_list_to_cell(sheet_id, r, c, actual_id);
                                         app.cell_options = elements.clone();
                                         
                                         println!("{} ({} options ready: {})", 

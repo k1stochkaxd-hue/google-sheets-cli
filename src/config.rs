@@ -73,6 +73,13 @@ impl AppConfig {
         self.lists.iter().find(|l| &l.id == list_id)
     }
 
+    /// Finds a list that has exactly the same elements. Used to avoid duplicates.
+    pub fn find_list_by_elements(&self, elements: &[String]) -> Option<String> {
+        self.lists.iter()
+            .find(|l| l.elements == elements)
+            .map(|l| l.id.clone())
+    }
+
     /// Shows all named lists with their elements
     pub fn list_named_lists(&self) -> Vec<String> {
         self.lists.iter()

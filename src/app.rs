@@ -62,23 +62,35 @@ impl App {
                                         let val = cell["formattedValue"].as_str().unwrap_or("").to_string();
                                         values.push(val);
                                         
-                                        // AUTO-IMPORT DROPDOWN if found in this cell
+                                        // SMART-IMPORT DROPDOWN
                                         if let Some(v_rule) = cell["dataValidation"].as_object() {
                                             if let Some(cond) = v_rule["condition"].as_object() {
                                                 let c_type = cond.get("type").and_then(|t| t.as_str()).unwrap_or("");
                                                 if c_type == "ONE_OF_LIST" {
                                                     if let Some(vals) = cond.get("values").and_then(|v| v.as_array()) {
-                                                        let mut elements = Vec::new();
+                                                        let mut elements: Vec<String> = Vec::new();
                                                         for v in vals {
                                                             if let Some(uv) = v["userEnteredValue"].as_str() {
                                                                 elements.push(uv.to_string());
                                                             }
                                                         }
-                                                        if !elements.is_empty() && config.get_cell_list(sheet_id, r_idx, c_idx + 1).is_none() {
-                                                            let addr = gspread_addr(r_idx, c_idx + 1);
-                                                            let base_id = format!("G_{}", addr);
-                                                            let new_id = config.add_named_list(elements, base_id);
-                                                            config.assign_list_to_cell(sheet_id, r_idx, c_idx + 1, new_id);
+                                                        
+                                                        if !elements.is_empty() {
+                                                            // Check if we already have a mapping for this cell 
+                                                            // OR if we already have this EXACT LIST in config
+                                                            let list_id = if let Some(existing_id) = config.find_list_by_elements(&elements) {
+                                                                existing_id
+                                                            } else {
+                                                                // Create a descriptive ID from elements, e.g., imp_YesNo
+                                                                let mut base = String::from("imp_");
+                                                                for el in elements.iter().take(2) {
+                                                                    base.push_str(&el.chars().filter(|c| c.is_alphanumeric()).take(5).collect::<String>());
+                                                                }
+                                                                config.add_named_list(elements, base)
+                                                            };
+                                                            
+                                                            // Always ensure cell is mapped to this list in local config
+                                                            config.assign_list_to_cell(sheet_id, r_idx, c_idx + 1, list_id);
                                                         }
                                                     }
                                                 }
@@ -124,8 +136,8 @@ impl App {
 
     /// Returns the current value of a cell at given row/col index
     pub fn get_cell_value(&self, row: usize, col: usize) -> &str {
-        if row > 0 && row <= self.data.len() {
-            let row_data = &self.data[row]; // Data index matches row index (headers included)
+        if row < self.data.len() {
+            let row_data = &self.data[row]; // row (e.g. 1) is index 1 (Data Row 1)
             if col > 0 && col <= row_data.len() {
                 return &row_data[col - 1];
             }
@@ -133,61 +145,9 @@ impl App {
         ""
     }
 
-    /// Fetches data validation options (dropdown menus) for the selected cell
+    /// Fetches data validation options (deprecated in favor of full sheet sync)
     pub async fn fetch_options(&mut self) -> Result<()> {
-        self.cell_options.clear();
-        if let (Some(r), Some(c)) = (self.selected_row, self.selected_col) {
-            if r == 0 || c == 0 {
-                return Ok(());
-            }
-            let title = &self.sheets[self.current_sheet_idx].title;
-            let addr = gspread_addr(r, c);
-            let range = format!("'{}'!{}", title, addr);
-            
-            let resp = self.client.get_cell_metadata(&range).await?;
-            
-            // Navigate through the complex Google Sheets API response to find validation rules
-            if let Some(sheets) = resp["sheets"].as_array() {
-                if let Some(sheet) = sheets.get(0) {
-                    if let Some(data) = sheet["data"].as_array() {
-                        if let Some(grid) = data.get(0) {
-                            if let Some(row_data) = grid["rowData"].as_array() {
-                                if let Some(row) = row_data.get(0) {
-                                    if let Some(values) = row["values"].as_array() {
-                                        if let Some(cell) = values.get(0) {
-                                            if let Some(v_rule) = cell["dataValidation"].as_object() {
-                                                if let Some(cond) = v_rule["condition"].as_object() {
-                                                    let c_type = cond.get("type").and_then(|t| t.as_str()).unwrap_or("");
-                                                    if let Some(vals) = cond.get("values").and_then(|v| v.as_array()) {
-                                                        for v in vals {
-                                                            if let Some(uv) = v["userEnteredValue"].as_str() {
-                                                                self.cell_options.push(uv.to_string());
-                                                            }
-                                                        }
-                                                    }
-                                                    
-                                                    // Handle dropdowns dependent on another range (ONE_OF_RANGE)
-                                                    if c_type == "ONE_OF_RANGE" && !self.cell_options.is_empty() {
-                                                        let range_expr = self.cell_options[0].clone();
-                                                        let r_vals = self.client.get_values(&range_expr).await?;
-                                                        self.cell_options.clear();
-                                                        for r in r_vals {
-                                                            if let Some(first) = r.get(0) {
-                                                                self.cell_options.push(first.clone());
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        // Keeping signature for compatibility, but we rely on local config now
         Ok(())
     }
 

@@ -130,7 +130,8 @@ async fn run_app() -> Result<()> {
                                     val = val.replacen("&?", "=", 1);
                                 }
                                 if let (Some(r), Some(c)) = (app.selected_row, app.selected_col) {
-                                    app.apply_change(r, c, val, true).await
+                                    app.apply_change(r, c, val, true).await?;
+                                    app.load_current_sheet(&mut config).await
                                 } else {
                                     Ok(())
                                 }
@@ -152,7 +153,8 @@ async fn run_app() -> Result<()> {
                             }
                             Command::Delete => {
                                 if let (Some(r), Some(c)) = (app.selected_row, app.selected_col) {
-                                    app.apply_change(r, c, "".to_string(), true).await
+                                    app.apply_change(r, c, "".to_string(), true).await?;
+                                    app.load_current_sheet(&mut config).await
                                 } else {
                                     Ok(())
                                 }

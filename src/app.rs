@@ -23,6 +23,12 @@ pub struct App {
     pub cell_options: Vec<String>, // Options for data validation (dropdowns)
     pub undo_stack: Vec<CellAction>,
     pub redo_stack: Vec<CellAction>,
+    
+    // Pagination settings
+    pub row_page: usize,
+    pub col_page: usize,
+    pub page_size_rows: usize,
+    pub page_size_cols: usize,
 }
 
 impl App {
@@ -39,6 +45,10 @@ impl App {
             cell_options: Vec::new(),
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
+            row_page: 1,
+            col_page: 1,
+            page_size_rows: 25, // Default page size
+            page_size_cols: 8,  // Default page columns
         })
     }
 
@@ -79,8 +89,6 @@ impl App {
                                                 } else if c_type == "ONE_OF_RANGE" {
                                                     if let Some(vals) = cond.get("values").and_then(|v| v.as_array()) {
                                                         if let Some(range_val) = vals.get(0).and_then(|v| v["userEnteredValue"].as_str()) {
-                                                            // Range dropdowns refer to a sheet range like "Sheet2!A1:A10"
-                                                            // We fetch it on the fly during the one-time import sync
                                                             if config.get_cell_list(sheet_id, r_idx, c_idx + 1).is_none() {
                                                                 if let Ok(r_vals) = self.client.get_values(range_val).await {
                                                                     for r in r_vals {
@@ -118,7 +126,6 @@ impl App {
             }
         }
         
-        // Refresh options for current selection
         self.restore_options_from_config(config);
         Ok(())
     }
@@ -157,7 +164,6 @@ impl App {
         ""
     }
 
-    /// Deprecated cell-based sync
     pub async fn fetch_options(&mut self) -> Result<()> {
         Ok(())
     }

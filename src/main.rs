@@ -116,11 +116,21 @@ async fn run_app() -> Result<()> {
                                 }
                             }
                             Command::Row(n) => {
+                                if let Some(row) = n {
+                                    if row > 0 {
+                                        app.row_page = (row - 1) / app.page_size_rows + 1;
+                                    }
+                                }
                                 app.selected_row = n;
                                 app.restore_options_from_config(&config);
                                 Ok(())
                             }
                             Command::Col(n) => {
+                                if let Some(col) = n {
+                                    if col > 0 {
+                                        app.col_page = (col - 1) / app.page_size_cols + 1;
+                                    }
+                                }
                                 app.selected_col = n;
                                 app.restore_options_from_config(&config);
                                 Ok(())
@@ -223,6 +233,14 @@ async fn run_app() -> Result<()> {
                             }
                             Command::Undo => app.undo(&mut config).await,
                             Command::Redo => app.redo(&mut config).await,
+                            Command::RowPage(n) => {
+                                app.row_page = n.max(1);
+                                Ok(())
+                            }
+                            Command::ColPage(n) => {
+                                app.col_page = n.max(1);
+                                Ok(())
+                            }
                             Command::Help => {
                                 show_help();
                                 pause();
@@ -496,22 +514,19 @@ fn show_splash() {
 fn show_help() {
     println!("{}", "--- G-CLI HELP REFERENCE ---".cyan().bold());
     println!("1, 2...    - Switch Worksheet");
-    println!("l<N>       - Select Row N");
-    println!("s<N>       - Select Column (by Letter)");
+    println!("l<N> / s<A> - Select Cell (Auto-jump to page)");
+    println!("rr<N> / cc<N> - Manual Row/Col Page switch");
     println!("ed <val>   - Edit cell (Formula prefix: &?)");
     println!("v <N>      - Select from dropdown value N");
     println!("del        - Clear selected cell");
     println!("new        - Append new row at bottom");
-    println!("add <x;y;z>  - Fill row Left to Right");
-    println!("add <x;y (-1)>- Fill row Right to Left (Reverse)");
-    println!("add <...> [x-y]- Skip columns x through y while filling");
-    println!("list       - List all named dropdown sets");
-    println!("nl <el;el>(id) - Create new name list (auto-ID if exists)");
-    println!("rl (id)    - Remove list by ID");
-    println!("edl (id)   - Assign list to selected cell as dropdown");
+    println!("add <x;z>[range] - Fill row with options");
+    println!("nl <e;e>(id) - Create named dropdown");
+    println!("list       - Show all dropdown lists");
+    println!("edl (id)   - Assign list to selected cell");
     println!("ns <name>  - Create a new Sheet (tab)");
     println!("rm         - Delete current Sheet (tab)");
-    println!("cz / csz   - Undo / Redo");
+    println!("cz / csz   - Undo / Redo last edit");
     println!("menu / eq  - Return to spreadsheet selection");
     println!("h          - Show this help reference");
     println!("exit       - Exit the application");

@@ -20,6 +20,8 @@ pub enum Command {
     NewList(Vec<String>, String),
     RemoveList(String),
     EditList(String),
+    RowPage(usize),
+    ColPage(usize),
 }
 
 pub fn parse_command(input: &str) -> Vec<Command> {
@@ -31,6 +33,12 @@ pub fn parse_command(input: &str) -> Vec<Command> {
 
         if part_lower == "list" {
             commands.push(Command::ListLists);
+        } else if part_lower.starts_with("rr") && part_lower[2..].parse::<usize>().is_ok() {
+            let n = part_lower[2..].parse::<usize>().unwrap_or(1);
+            commands.push(Command::RowPage(n));
+        } else if part_lower.starts_with("cc") && part_lower[2..].parse::<usize>().is_ok() {
+            let n = part_lower[2..].parse::<usize>().unwrap_or(1);
+            commands.push(Command::ColPage(n));
         } else if part_lower.starts_with("nl") {
             let full_input = parts[i..].join(" ");
             if let (Some(b_start), Some(b_end)) = (full_input.find('<'), full_input.rfind('>')) {
@@ -56,7 +64,6 @@ pub fn parse_command(input: &str) -> Vec<Command> {
             let id = if part_lower == "edl" {
                 parts.get(i + 1).map(|s| s.to_string()).unwrap_or_default()
             } else {
-                // Here we use the ORIGINAL case from parts[i] if it's edlXYZ
                 parts[i][3..].to_string()
             };
             commands.push(Command::EditList(id));

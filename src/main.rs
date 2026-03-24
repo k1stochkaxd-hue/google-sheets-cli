@@ -303,14 +303,17 @@ async fn run_app() -> Result<()> {
                             }
                             Command::EditList(id) => {
                                 if let (Some(r), Some(c)) = (app.selected_row, app.selected_col) {
-                                    let list_opt = config.lists.iter().find(|l| l.id == id);
-                                    if let Some(list) = list_opt {
+                                    let elements_opt = config.lists.iter()
+                                        .find(|l| l.id == id)
+                                        .map(|l| l.elements.clone());
+                                        
+                                    if let Some(elements) = elements_opt {
                                         let sheet_id = app.sheets[app.current_sheet_idx].id;
-                                        app.client.set_data_validation(sheet_id, r, c, list.elements.clone()).await?;
+                                        app.client.set_data_validation(sheet_id, r, c, elements.clone()).await?;
                                         
                                         // PERSIST to local config map!
                                         config.assign_list_to_cell(sheet_id, r, c, id.clone());
-                                        app.cell_options = list.elements.clone();
+                                        app.cell_options = elements.clone();
                                         
                                         println!("{} ({} options ready: {})", 
                                             "Dropdown list assigned successfully!".green().bold(),

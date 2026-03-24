@@ -138,9 +138,14 @@ async fn run_app() -> Result<()> {
                             }
                             Command::Val(n) => {
                                 if let (Some(r), Some(c)) = (app.selected_row, app.selected_col) {
+                                    if app.cell_options.is_empty() {
+                                        app.restore_options_from_config(&config);
+                                    }
+                                    
                                     if n > 0 && n <= app.cell_options.len() {
                                         let val = app.cell_options[n - 1].clone();
                                         app.apply_change(r, c, val, true).await?;
+                                        app.load_current_sheet(&mut config).await?;
                                     } else {
                                         println!("{} ({} options available).", "Error: Invalid option index".red(), app.cell_options.len());
                                         pause();

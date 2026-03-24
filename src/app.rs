@@ -62,37 +62,49 @@ impl App {
                                         let val = cell["formattedValue"].as_str().unwrap_or("").to_string();
                                         values.push(val);
                                         
-                                        // SMART-IMPORT DROPDOWN
+                                        // SMART-IMPORT DROPDOWN (Support ONE_OF_LIST and ONE_OF_RANGE)
                                         if let Some(v_rule) = cell["dataValidation"].as_object() {
                                             if let Some(cond) = v_rule["condition"].as_object() {
                                                 let c_type = cond.get("type").and_then(|t| t.as_str()).unwrap_or("");
+                                                let mut elements: Vec<String> = Vec::new();
+
                                                 if c_type == "ONE_OF_LIST" {
                                                     if let Some(vals) = cond.get("values").and_then(|v| v.as_array()) {
-                                                        let mut elements: Vec<String> = Vec::new();
                                                         for v in vals {
                                                             if let Some(uv) = v["userEnteredValue"].as_str() {
                                                                 elements.push(uv.to_string());
                                                             }
                                                         }
-                                                        
-                                                        if !elements.is_empty() {
-                                                            // Check if we already have a mapping for this cell 
-                                                            // OR if we already have this EXACT LIST in config
-                                                            let list_id = if let Some(existing_id) = config.find_list_by_elements(&elements) {
-                                                                existing_id
-                                                            } else {
-                                                                // Create a descriptive ID from elements, e.g., imp_YesNo
-                                                                let mut base = String::from("imp_");
-                                                                for el in elements.iter().take(2) {
-                                                                    base.push_str(&el.chars().filter(|c| c.is_alphanumeric()).take(5).collect::<String>());
+                                                    }
+                                                } else if c_type == "ONE_OF_RANGE" {
+                                                    if let Some(vals) = cond.get("values").and_then(|v| v.as_array()) {
+                                                        if let Some(range_val) = vals.get(0).and_then(|v| v["userEnteredValue"].as_str()) {
+                                                            // Range dropdowns refer to a sheet range like "Sheet2!A1:A10"
+                                                            // We fetch it on the fly during the one-time import sync
+                                                            if config.get_cell_list(sheet_id, r_idx, c_idx + 1).is_none() {
+                                                                if let Ok(r_vals) = self.client.get_values(range_val).await {
+                                                                    for r in r_vals {
+                                                                        if let Some(first) = r.get(0) {
+                                                                            elements.push(first.clone());
+                                                                        }
+                                                                    }
                                                                 }
-                                                                config.add_named_list(elements, base)
-                                                            };
-                                                            
-                                                            // Always ensure cell is mapped to this list in local config
-                                                            config.assign_list_to_cell(sheet_id, r_idx, c_idx + 1, list_id);
+                                                            }
                                                         }
                                                     }
+                                                }
+
+                                                if !elements.is_empty() {
+                                                    let list_id = if let Some(existing_id) = config.find_list_by_elements(&elements) {
+                                                        existing_id
+                                                    } else {
+                                                        let mut base = String::from("imp_");
+                                                        for el in elements.iter().take(2) {
+                                                            base.push_str(&el.chars().filter(|c| c.is_alphanumeric()).take(5).collect::<String>());
+                                                        }
+                                                        config.add_named_list(elements, base)
+                                                    };
+                                                    config.assign_list_to_cell(sheet_id, r_idx, c_idx + 1, list_id);
                                                 }
                                             }
                                         }
@@ -137,7 +149,7 @@ impl App {
     /// Returns the current value of a cell at given row/col index
     pub fn get_cell_value(&self, row: usize, col: usize) -> &str {
         if row < self.data.len() {
-            let row_data = &self.data[row]; // row (e.g. 1) is index 1 (Data Row 1)
+            let row_data = &self.data[row]; 
             if col > 0 && col <= row_data.len() {
                 return &row_data[col - 1];
             }
@@ -145,9 +157,8 @@ impl App {
         ""
     }
 
-    /// Fetches data validation options (deprecated in favor of full sheet sync)
+    /// Deprecated cell-based sync
     pub async fn fetch_options(&mut self) -> Result<()> {
-        // Keeping signature for compatibility, but we rely on local config now
         Ok(())
     }
 

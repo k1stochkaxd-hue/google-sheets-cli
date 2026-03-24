@@ -110,17 +110,36 @@ async fn run_app() -> Result<()> {
                             Command::Sheet(n) => {
                                 if n > 0 && n <= app.sheets.len() {
                                     app.current_sheet_idx = n - 1;
-                                    app.load_current_sheet().await
+                                    let res = app.load_current_sheet().await;
+                                    app.restore_options_from_config(&config);
+                                    if app.cell_options.is_empty() {
+                                        if let Some(id) = app.import_google_options(&mut config).await {
+                                            println!("Imported dropdown to local list: {}", id.cyan());
+                                        }
+                                    }
+                                    res
                                 } else {
                                     Ok(())
                                 }
                             }
                             Command::Row(n) => {
                                 app.selected_row = n;
+                                app.restore_options_from_config(&config);
+                                if app.cell_options.is_empty() {
+                                    if let Some(id) = app.import_google_options(&mut config).await {
+                                        println!("Imported dropdown to local list: {}", id.cyan());
+                                    }
+                                }
                                 Ok(())
                             }
                             Command::Col(n) => {
                                 app.selected_col = n;
+                                app.restore_options_from_config(&config);
+                                if app.cell_options.is_empty() {
+                                    if let Some(id) = app.import_google_options(&mut config).await {
+                                        println!("Imported dropdown to local list: {}", id.cyan());
+                                    }
+                                }
                                 Ok(())
                             }
                             Command::Edit(mut val) => {
@@ -289,7 +308,8 @@ async fn run_app() -> Result<()> {
                                         let sheet_id = app.sheets[app.current_sheet_idx].id;
                                         app.client.set_data_validation(sheet_id, r, c, list.elements.clone()).await?;
                                         
-                                        // Set options directly from memory — no need to re-fetch from Google
+                                        // PERSIST to local config map!
+                                        config.assign_list_to_cell(sheet_id, r, c, id.clone());
                                         app.cell_options = list.elements.clone();
                                         
                                         println!("{} ({} options ready: {})", 

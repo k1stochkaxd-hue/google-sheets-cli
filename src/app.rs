@@ -1,5 +1,6 @@
-use anyhow::{Result};
+use anyhow::Result;
 use crate::sheets::{SheetsClient, SheetMeta};
+use crate::config::AppConfig;
 
 /// Represents a single change made to a cell, used for undo/redo functionality
 #[derive(Debug, Clone)]
@@ -171,6 +172,37 @@ impl App {
             self.load_current_sheet().await?;
         }
         Ok(())
+    }
+
+    /// Restores cell_options from the local config for the currently selected cell.
+    /// Call this whenever the selected row or column changes.
+    pub fn restore_options_from_config(&mut self, config: &AppConfig) {
+        self.cell_options.clear();
+        if let (Some(r), Some(c)) = (self.selected_row, self.selected_col) {
+            let sheet_id = self.sheets[self.current_sheet_idx].id;
+            if let Some(list) = config.get_cell_list(sheet_id, r, c) {
+                self.cell_options = list.elements.clone();
+            }
+        }
+    }
+
+    /// Imports existing Google Sheets dropdown options into local config (one-time sync).
+    /// Returns the new list ID if a new local list was created.
+    pub async fn import_google_options(&mut self, config: &mut AppConfig) -> Option<String> {
+        if let (Some(r), Some(c)) = (self.selected_row, self.selected_col) {
+            let sheet_id = self.sheets[self.current_sheet_idx].id;
+            // Only import if not already tracked locally
+            if config.get_cell_list(sheet_id, r, c).is_none() {
+                // Try to fetch from Google
+                let _ = self.fetch_options().await;
+                if !self.cell_options.is_empty() {
+                    let new_id = config.add_named_list(self.cell_options.clone(), String::new());
+                    config.assign_list_to_cell(sheet_id, r, c, new_id.clone());
+                    return Some(new_id);
+                }
+            }
+        }
+        None
     }
 }
 

@@ -5,9 +5,16 @@ use crate::app::App;
 pub fn render_table(app: &App) {
     let mut table = Table::new();
     let title = format!(" Sheet: {} ", app.sheets[app.current_sheet_idx].title);
-    table.set_header(vec![
-        Cell::new("#").add_attribute(Attribute::Dim),
-    ]);
+    
+    // Clear status/caption logic
+    let mut options_line = String::new();
+    if !app.cell_options.is_empty() {
+        options_line.push_str(&format!("{} ", " 💡 Options:".yellow().bold()));
+        for (i, opt) in app.cell_options.iter().enumerate() {
+            options_line.push_str(&format!("{}: {}  ", (i + 1).to_string().cyan().bold(), opt));
+        }
+        options_line.push_str(&format!("(use {})", "v <num>".green().bold()));
+    }
 
     if app.data.is_empty() {
         println!("No data available");
@@ -54,33 +61,28 @@ pub fn render_table(app: &App) {
         table.add_row(row);
     }
 
-    let mut caption = String::new();
-    if !app.cell_options.is_empty() {
-        caption.push_str("Dropdown options: ");
-        for (i, opt) in app.cell_options.iter().enumerate() {
-            caption.push_str(&format!("{}: {}  ", (i + 1).to_string().yellow().bold(), opt));
-        }
-        caption.push_str(&format!("(use {})", "v <num>".green().bold()));
+    // Center everything
+    let (width, _) = terminal::size().unwrap_or((80, 24));
+    
+    // 1. Print Title
+    let title_padding = (width as usize).saturating_sub(title.len()) / 2;
+    println!("\n{}{}", " ".repeat(title_padding), title.on_green().black().bold());
+
+    // 2. Print Options (ABOVE table)
+    if !options_line.is_empty() {
+        let stripped_opt = strip_ansi_escapes::strip(&options_line);
+        let opt_padding = (width as usize).saturating_sub(stripped_opt.len()) / 2;
+        println!("{}{}", " ".repeat(opt_padding), options_line);
+    } else {
+        println!(); // Spacing
     }
 
-    // Center the table
-    let (width, _) = terminal::size().unwrap_or((80, 24));
+    // 3. Print Table
     let table_str = table.to_string();
-    let table_lines: Vec<&str> = table_str.lines().collect();
-    
-    // Print title
-    let title_padding = (width as usize).saturating_sub(title.len()) / 2;
-    println!("{}{}", " ".repeat(title_padding), title.green().bold());
-
-    for line in table_lines {
+    for line in table_str.lines() {
         let stripped_len = strip_ansi_escapes::strip(line).len();
         let padding = (width as usize).saturating_sub(stripped_len) / 2;
         println!("{}{}", " ".repeat(padding), line);
-    }
-    
-    if !caption.is_empty() {
-        let caption_padding = (width as usize).saturating_sub(strip_ansi_escapes::strip(&caption).len()) / 2;
-        println!("{}{}", " ".repeat(caption_padding), caption);
     }
 }
 

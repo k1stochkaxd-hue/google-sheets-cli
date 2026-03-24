@@ -196,7 +196,12 @@ impl App {
                 // Try to fetch from Google
                 let _ = self.fetch_options().await;
                 if !self.cell_options.is_empty() {
-                    let new_id = config.add_named_list(self.cell_options.clone(), String::new());
+                    // Generate a descriptive ID like G_A1
+                    let addr = gspread_addr(r, c);
+                    let base_id = format!("G_{}", addr);
+                    
+                    // Add it to our local list (add_named_list handles duplicates/randoms)
+                    let new_id = config.add_named_list(self.cell_options.clone(), base_id);
                     config.assign_list_to_cell(sheet_id, r, c, new_id.clone());
                     return Some(new_id);
                 }

@@ -1,8 +1,8 @@
 use crate::app::App;
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
-use comfy_table::*;
-use colored::*;
+use comfy_table::{Table, Cell, Color as TableColor, ContentArrangement, Attribute};
+use colored::Colorize;
 
 /// Renders the current spreadsheet data into a formatted terminal table
 pub fn render_table(app: &App) {
@@ -31,12 +31,12 @@ pub fn render_table(app: &App) {
         .set_content_arrangement(ContentArrangement::Dynamic);
 
     // Build header row: # + sliced columns
-    let mut header_cells = vec![Cell::new("#").add_attribute(Attribute::Bold).fg(Color::Cyan)];
+    let mut header_cells = vec![Cell::new("#").add_attribute(Attribute::Bold).fg(TableColor::Cyan)];
     if !app.data.is_empty() {
         for c in start_col..end_col {
             let col_letter = get_column_letter(c + 1);
             let header_text = format!("({}) {}", col_letter, app.data[0].get(c).unwrap_or(&String::new()));
-            header_cells.push(Cell::new(header_text).add_attribute(Attribute::Bold).fg(Color::Green));
+            header_cells.push(Cell::new(header_text).add_attribute(Attribute::Bold).fg(TableColor::Green));
         }
     }
     table.set_header(header_cells);
@@ -44,7 +44,7 @@ pub fn render_table(app: &App) {
     // Build data rows for the current window
     for r_idx in effective_start_row..end_row {
         let row_data = &app.data[r_idx];
-        let mut row_cells = vec![Cell::new(r_idx.to_string()).fg(Color::Cyan)];
+        let mut row_cells = vec![Cell::new(r_idx.to_string()).fg(TableColor::Cyan)];
         
         for c in start_col..end_col {
             let mut cell_content = row_data.get(c).cloned().unwrap_or_default();
@@ -58,9 +58,9 @@ pub fn render_table(app: &App) {
             
             // Highlight selected cell
             if Some(r_idx) == app.selected_row && Some(c + 1) == app.selected_col {
-                cell = cell.bg(Color::Yellow).fg(Color::Black);
+                cell = cell.bg(TableColor::Yellow).fg(TableColor::Black);
             } else if Some(r_idx) == app.selected_row {
-                cell = cell.bg(Color::DarkGrey);
+                cell = cell.bg(TableColor::DarkGrey);
             }
             
             row_cells.push(cell);

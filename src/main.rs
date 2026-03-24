@@ -76,7 +76,7 @@ async fn run_app() -> Result<()> {
                 continue;
             }
         };
-        app.load_current_sheet().await?;
+        app.load_current_sheet(&mut config).await?;
 
         let mut rl = rustyline::DefaultEditor::new()?;
         let mut return_to_menu = false;
@@ -110,14 +110,7 @@ async fn run_app() -> Result<()> {
                             Command::Sheet(n) => {
                                 if n > 0 && n <= app.sheets.len() {
                                     app.current_sheet_idx = n - 1;
-                                    let res = app.load_current_sheet().await;
-                                    app.restore_options_from_config(&config);
-                                    if app.cell_options.is_empty() {
-                                        if let Some(id) = app.import_google_options(&mut config).await {
-                                            println!("Imported dropdown to local list: {}", id.cyan());
-                                        }
-                                    }
-                                    res
+                                    app.load_current_sheet(&mut config).await
                                 } else {
                                     Ok(())
                                 }
@@ -125,21 +118,11 @@ async fn run_app() -> Result<()> {
                             Command::Row(n) => {
                                 app.selected_row = n;
                                 app.restore_options_from_config(&config);
-                                if app.cell_options.is_empty() {
-                                    if let Some(id) = app.import_google_options(&mut config).await {
-                                        println!("Imported dropdown to local list: {}", id.cyan());
-                                    }
-                                }
                                 Ok(())
                             }
                             Command::Col(n) => {
                                 app.selected_col = n;
                                 app.restore_options_from_config(&config);
-                                if app.cell_options.is_empty() {
-                                    if let Some(id) = app.import_google_options(&mut config).await {
-                                        println!("Imported dropdown to local list: {}", id.cyan());
-                                    }
-                                }
                                 Ok(())
                             }
                             Command::Edit(mut val) => {
@@ -198,7 +181,7 @@ async fn run_app() -> Result<()> {
                                         .await
                                         .ok();
                                 }
-                                app.load_current_sheet().await
+                                app.load_current_sheet(&mut config).await
                             }
                             Command::Add(values, reverse, skip_cols) => {
                                 let row = app.selected_row.unwrap_or(1);
@@ -229,10 +212,10 @@ async fn run_app() -> Result<()> {
                                         }
                                     }
                                 }
-                                app.load_current_sheet().await
+                                app.load_current_sheet(&mut config).await
                             }
-                            Command::Undo => app.undo().await,
-                            Command::Redo => app.redo().await,
+                            Command::Undo => app.undo(&mut config).await,
+                            Command::Redo => app.redo(&mut config).await,
                             Command::Help => {
                                 show_help();
                                 pause();
@@ -250,7 +233,7 @@ async fn run_app() -> Result<()> {
                                 } else {
                                     app.current_sheet_idx = app.sheets.len() - 1;
                                 }
-                                app.load_current_sheet().await
+                                app.load_current_sheet(&mut config).await
                             }
                             Command::Remove => {
                                 if app.sheets.len() <= 1 {
@@ -268,7 +251,7 @@ async fn run_app() -> Result<()> {
                                         app.client.delete_sheet(id).await?;
                                         app.sheets = app.client.fetch_metadata().await?;
                                         app.current_sheet_idx = 0;
-                                        app.load_current_sheet().await
+                                        app.load_current_sheet(&mut config).await
                                     } else {
                                         Ok(())
                                     }

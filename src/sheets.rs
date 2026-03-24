@@ -256,6 +256,24 @@ impl SheetsClient {
         Ok(())
     }
 
+    /// Fetches the entire sheet structure including all cell values and metadata (like drop-downs)
+    pub async fn get_sheet_full(&self, sheet_title: &str) -> Result<serde_json::Value> {
+        let url = format!(
+            "https://sheets.googleapis.com/v4/spreadsheets/{}?ranges='{}'&includeGridData=true",
+            self.spreadsheet_id,
+            sheet_title
+        );
+
+        let resp = self.client.get(url)
+            .header("Authorization", self.auth_header())
+            .send()
+            .await?
+            .json::<serde_json::Value>()
+            .await?;
+
+        Ok(resp)
+    }
+
     /// Sets a data validation rule (dropdown list) for a specific cell
     pub async fn set_data_validation(
         &self,
@@ -280,8 +298,8 @@ impl SheetsClient {
                     "setDataValidation": {
                         "range": {
                             "sheetId": sheet_id,
-                            "startRowIndex": row - 1,
-                            "endRowIndex": row,
+                            "startRowIndex": row,
+                            "endRowIndex": row + 1,
                             "startColumnIndex": col - 1,
                             "endColumnIndex": col
                         },

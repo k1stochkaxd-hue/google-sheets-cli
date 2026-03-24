@@ -42,11 +42,60 @@ impl App {
         })
     }
 
-    /// Loads data for the currently selected worksheet
-    pub async fn load_current_sheet(&mut self) -> Result<()> {
+    /// Loads data and all metadata (including dropdowns) for the current worksheet
+    pub async fn load_current_sheet(&mut self, config: &mut AppConfig) -> Result<()> {
         let title = &self.sheets[self.current_sheet_idx].title;
-        let rows = self.client.get_values(title).await?;
-        self.data = rows;
+        let sheet_id = self.sheets[self.current_sheet_idx].id;
+        
+        let full_data = self.client.get_sheet_full(title).await?;
+        self.data.clear();
+        
+        if let Some(sheets) = full_data["sheets"].as_array() {
+            if let Some(sheet) = sheets.get(0) {
+                if let Some(grid_data) = sheet["data"].as_array() {
+                    if let Some(grid) = grid_data.get(0) {
+                        if let Some(row_data) = grid["rowData"].as_array() {
+                            for (r_idx, row) in row_data.iter().enumerate() {
+                                let mut values = Vec::new();
+                                if let Some(cell_values) = row["values"].as_array() {
+                                    for (c_idx, cell) in cell_values.iter().enumerate() {
+                                        let val = cell["formattedValue"].as_str().unwrap_or("").to_string();
+                                        values.push(val);
+                                        
+                                        // AUTO-IMPORT DROPDOWN if found in this cell
+                                        if let Some(v_rule) = cell["dataValidation"].as_object() {
+                                            if let Some(cond) = v_rule["condition"].as_object() {
+                                                let c_type = cond.get("type").and_then(|t| t.as_str()).unwrap_or("");
+                                                if c_type == "ONE_OF_LIST" {
+                                                    if let Some(vals) = cond.get("values").and_then(|v| v.as_array()) {
+                                                        let mut elements = Vec::new();
+                                                        for v in vals {
+                                                            if let Some(uv) = v["userEnteredValue"].as_str() {
+                                                                elements.push(uv.to_string());
+                                                            }
+                                                        }
+                                                        if !elements.is_empty() && config.get_cell_list(sheet_id, r_idx, c_idx + 1).is_none() {
+                                                            let addr = gspread_addr(r_idx, c_idx + 1);
+                                                            let base_id = format!("G_{}", addr);
+                                                            let new_id = config.add_named_list(elements, base_id);
+                                                            config.assign_list_to_cell(sheet_id, r_idx, c_idx + 1, new_id);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                self.data.push(values);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Refresh options for current selection
+        self.restore_options_from_config(config);
         Ok(())
     }
 
@@ -70,15 +119,13 @@ impl App {
             });
             self.redo_stack.clear();
         }
-
-        self.load_current_sheet().await?;
         Ok(())
     }
 
-    /// Safely retrieves the value of a cell from the local data cache
+    /// Returns the current value of a cell at given row/col index
     pub fn get_cell_value(&self, row: usize, col: usize) -> &str {
         if row > 0 && row <= self.data.len() {
-            let row_data = &self.data[row - 1];
+            let row_data = &self.data[row]; // Data index matches row index (headers included)
             if col > 0 && col <= row_data.len() {
                 return &row_data[col - 1];
             }
@@ -144,38 +191,7 @@ impl App {
         Ok(())
     }
 
-    /// Reverts the last recorded cell action
-    pub async fn undo(&mut self) -> Result<()> {
-        if let Some(action) = self.undo_stack.pop() {
-            self.current_sheet_idx = action.sheet_idx;
-            let title = &self.sheets[self.current_sheet_idx].title;
-            let addr = gspread_addr(action.row, action.col);
-            let range = format!("{}!{}", title, addr);
-            
-            self.client.update_cell(&range, &action.old_value).await?;
-            self.redo_stack.push(action);
-            self.load_current_sheet().await?;
-        }
-        Ok(())
-    }
-
-    /// Re-applies an action that was previously undone
-    pub async fn redo(&mut self) -> Result<()> {
-        if let Some(action) = self.redo_stack.pop() {
-            self.current_sheet_idx = action.sheet_idx;
-            let title = &self.sheets[self.current_sheet_idx].title;
-            let addr = gspread_addr(action.row, action.col);
-            let range = format!("{}!{}", title, addr);
-            
-            self.client.update_cell(&range, &action.new_value).await?;
-            self.undo_stack.push(action);
-            self.load_current_sheet().await?;
-        }
-        Ok(())
-    }
-
     /// Restores cell_options from the local config for the currently selected cell.
-    /// Call this whenever the selected row or column changes.
     pub fn restore_options_from_config(&mut self, config: &AppConfig) {
         self.cell_options.clear();
         if let (Some(r), Some(c)) = (self.selected_row, self.selected_col) {
@@ -186,28 +202,34 @@ impl App {
         }
     }
 
-    /// Imports existing Google Sheets dropdown options into local config (one-time sync).
-    /// Returns the new list ID if a new local list was created.
-    pub async fn import_google_options(&mut self, config: &mut AppConfig) -> Option<String> {
-        if let (Some(r), Some(c)) = (self.selected_row, self.selected_col) {
-            let sheet_id = self.sheets[self.current_sheet_idx].id;
-            // Only import if not already tracked locally
-            if config.get_cell_list(sheet_id, r, c).is_none() {
-                // Try to fetch from Google
-                let _ = self.fetch_options().await;
-                if !self.cell_options.is_empty() {
-                    // Generate a descriptive ID like G_A1
-                    let addr = gspread_addr(r, c);
-                    let base_id = format!("G_{}", addr);
-                    
-                    // Add it to our local list (add_named_list handles duplicates/randoms)
-                    let new_id = config.add_named_list(self.cell_options.clone(), base_id);
-                    config.assign_list_to_cell(sheet_id, r, c, new_id.clone());
-                    return Some(new_id);
-                }
-            }
+    /// Reverts the last recorded cell action
+    pub async fn undo(&mut self, config: &mut AppConfig) -> Result<()> {
+        if let Some(action) = self.undo_stack.pop() {
+            self.current_sheet_idx = action.sheet_idx;
+            let title = &self.sheets[self.current_sheet_idx].title;
+            let addr = gspread_addr(action.row, action.col);
+            let range = format!("{}!{}", title, addr);
+            
+            self.client.update_cell(&range, &action.old_value).await?;
+            self.redo_stack.push(action);
+            self.load_current_sheet(config).await?;
         }
-        None
+        Ok(())
+    }
+
+    /// Re-applies an action that was previously undone
+    pub async fn redo(&mut self, config: &mut AppConfig) -> Result<()> {
+        if let Some(action) = self.redo_stack.pop() {
+            self.current_sheet_idx = action.sheet_idx;
+            let title = &self.sheets[self.current_sheet_idx].title;
+            let addr = gspread_addr(action.row, action.col);
+            let range = format!("{}!{}", title, addr);
+            
+            self.client.update_cell(&range, &action.new_value).await?;
+            self.undo_stack.push(action);
+            self.load_current_sheet(config).await?;
+        }
+        Ok(())
     }
 }
 
